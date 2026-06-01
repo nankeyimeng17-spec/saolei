@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Start-Process \"D:\\\\first-cc\\\\minesweeper\\\\index.html\")",
+      "PowerShell(python --version)",
+      "PowerShell($excel = New-Object -ComObject Excel.Application -ErrorAction SilentlyContinue; if \\($excel\\) { Write-Host \"Excel COM available\"; $excel.Quit\\(\\) } else { Write-Host \"Excel COM not available\" })",
+      "PowerShell(Get-Process *)",
+      "PowerShell(powershell -ExecutionPolicy Bypass -File \"D:\\\\first-cc\\\\fill_chairs.ps1\")",
+      "PowerShell($script = [System.IO.File]::ReadAllText\\('D:\\\\first-cc\\\\fill_chairs.ps1', [System.Text.Encoding]::UTF8\\); Invoke-Expression $script)",
+      "PowerShell(Out-Null *)",
+      "PowerShell(Copy-Item *)",
+      "PowerShell(Start-Process \"C:\\\\Users\\\\山眠\\\\Downloads\\\\阶段一_已填充.xlsx\")",
+      "WebSearch",
+      "WebFetch(domain:www.architonic.com)",
+      "WebFetch(domain:estliving.com)",
+      "WebFetch(domain:www.smow.com)",
+      "WebFetch(domain:collection.powerhouse.com.au)",
+      "PowerShell(Start-Process \"D:\\\\first-cc\\\\椅子案例图片链接.txt\")",
+      "PowerShell(New-Item *)",
+      "PowerShell(Get-Content *)"
+    ]
+  }
+}
