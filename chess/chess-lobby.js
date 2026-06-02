@@ -7,16 +7,15 @@ var ChessLobby = (function () {
   'use strict';
 
   // ==================== Firebase 配置 ====================
-  // ⚠️ 部署前需要替换为你的 Firebase 配置（在 Firebase Console → 项目设置 中获取）
 
   var firebaseConfig = {
-    apiKey: "AIzaSyBwNYClmEanOXVvJMJaUA_d8rF4K2HrRkg",
-    authDomain: "chess-lobby-6f2e8.firebaseapp.com",
-    databaseURL: "https://chess-lobby-6f2e8-default-rtdb.firebaseio.com",
-    projectId: "chess-lobby-6f2e8",
-    storageBucket: "chess-lobby-6f2e8.firebasestorage.app",
-    messagingSenderId: "236434692968",
-    appId: "1:236434692968:web:4f8a0a2c6e1b9d3f5a7c8e"
+    apiKey: "AIzaSyApVdDYaCSc67ywuRV6Zz6vqM7s6EnbQpk",
+    authDomain: "chess-lobby-92618.firebaseapp.com",
+    databaseURL: "https://chess-lobby-92618-default-rtdb.firebaseio.com",
+    projectId: "chess-lobby-92618",
+    storageBucket: "chess-lobby-92618.firebasestorage.app",
+    messagingSenderId: "781607036445",
+    appId: "1:781607036445:web:6c99c7f6a92c03a93c88f4"
   };
 
   // ==================== 状态 ====================
