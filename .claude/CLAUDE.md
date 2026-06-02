@@ -7,10 +7,8 @@
 ## 项目结构
 ```
 D:\first-cc\
-├── index.html              ← 根跳转页（→ minesweeper/）
+├── index.html              ← 扫雷游戏本体（单文件 HTML/CSS/JS）
 ├── README.md               ← 项目说明文档
-├── minesweeper/
-│   └── index.html          ← 扫雷游戏本体（单文件 HTML/CSS/JS）
 ├── chair-collection/       ← 椅子采集项目
 └── .claude/
     ├── CLAUDE.md            ← 本文件（项目级配置）

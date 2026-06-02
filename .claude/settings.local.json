@@ -17,7 +17,18 @@
       "WebFetch(domain:collection.powerhouse.com.au)",
       "PowerShell(Start-Process \"D:\\\\first-cc\\\\椅子案例图片链接.txt\")",
       "PowerShell(New-Item *)",
-      "PowerShell(Get-Content *)"
+      "PowerShell(Get-Content *)",
+      "Read(//c/Users/山眠/AppData/Local/**)",
+      "Read(//c/Program Files/**)",
+      "Bash(/c/Program Files/GitHub CLI/gh auth *)",
+      "Bash(start *)",
+      "Bash(/c/Program Files/Git/bin/git push *)",
+      "Bash(/c/Program Files/GitHub CLI/gh api *)",
+      "WebFetch(domain:deepwiki.com)",
+      "WebFetch(domain:blog.csdn.net)",
+      "Bash(echo '{\"workspace\":{\"current_dir\":\"D:\\\\\\\\first-cc\"},\"model\":{\"display_name\":\"deepseek-v4-pro\"},\"context_window\":{\"remaining_percentage\":85}}')",
+      "Bash(powershell -NoProfile -Command '$d=[Console]::In.ReadToEnd\\(\\)|ConvertFrom-Json;$cwd=$d.workspace.current_dir;$m=$d.model.display_name;$r=$d.context_window.remaining_percentage;$ctx=if\\($r\\){Context: +$r+%}else{Context: N/A};Write-Host \"$cwd | $m | $ctx\"')",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\\\Users\\\\山眠\\\\.claude\\\\statusline.ps1')"
     ]
   }
 }
