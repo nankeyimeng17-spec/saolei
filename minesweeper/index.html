@@ -821,7 +821,6 @@
   }
 
   boardEl.addEventListener('touchstart', function(e) {
-    e.preventDefault(); // 阻止浏览器长按菜单
     // 多指触摸不处理
     if (e.touches.length !== 1) {
       clearLongPress();
@@ -861,7 +860,6 @@
 
   boardEl.addEventListener('touchmove', function(e) {
     if (!longPressTimer || longPressFired) return;
-    e.preventDefault(); // 阻止长按过程中页面滚动
 
     var pos = getTouchPos(e);
     var dx = pos.x - touchStartX;
@@ -871,7 +869,7 @@
     if (Math.abs(dx) > MOVE_TOLERANCE || Math.abs(dy) > MOVE_TOLERANCE) {
       clearLongPress();
     }
-  }, { passive: false });
+  });
 
   boardEl.addEventListener('touchend', function(e) {
     // 如果长按已经触发，阻止后续 click
@@ -879,7 +877,7 @@
       e.preventDefault();
     }
     clearLongPress();
-  }, { passive: false });
+  });
 
   boardEl.addEventListener('touchcancel', function() {
     clearLongPress();
