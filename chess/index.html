@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>中国象棋 · 在线对战</title>
+  <style>
+    /* ==================== CSS 变量（传统中国风主题） ==================== */
+    :root {
+      --bg-primary: #1a0f0a;
+      --bg-panel: #2c1810;
+      --bg-board: #e8d5a3;
+      --board-line: #4a3520;
+      --piece-red-bg: #b5343a;
+      --piece-red-text: #f5e6c8;
+      --piece-black-bg: #2c3e50;
+      --piece-black-text: #f5e6c8;
+      --accent-gold: #c9a44b;
+      --accent-red: #c0392b;
+      --text-primary: #f0e6d3;
+      --text-secondary: #c4a97d;
+      --highlight-gold: rgba(201, 164, 75, 0.7);
+      --valid-dot: rgba(80, 180, 100, 0.55);
+      --danger: #e74c3c;
+      --cell-size: 54px;
+      --board-pad: 32px;
+    }
+
+    /* ==================== 全局 ==================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'KaiTi', 'STKaiti', 'AR PL UKai CN', 'Noto Serif SC', serif;
+      background: radial-gradient(ellipse at center, #3d1f10 0%, #1a0f0a 70%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: var(--text-primary);
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      padding: 12px;
+    }
+
+    #app {
+      width: 100%;
+      max-width: 540px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* ==================== 标题 ==================== */
+    .title {
+      font-size: 28px;
+      font-weight: bold;
+      color: var(--accent-gold);
+      letter-spacing: 4px;
+    }
+    .title .lantern { font-size: 24px; }
+
+    /* ==================== 面板 ==================== */
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid rgba(201, 164, 75, 0.3);
+      border-radius: 10px;
+      padding: 16px 20px;
+      width: 100%;
+      text-align: center;
+    }
+
+    /* ==================== 按钮 ==================== */
+    .btn {
+      font-family: inherit;
+      font-size: 16px;
+      padding: 10px 24px;
+      border: 1px solid var(--accent-gold);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 1px;
+    }
+    .btn-primary {
+      background: var(--accent-red);
+      color: var(--text-primary);
+      border-color: var(--accent-red);
+    }
+    .btn-primary:hover { background: #d4453b; transform: translateY(-1px); }
+    .btn-outline {
+      background: transparent;
+      color: var(--accent-gold);
+    }
+    .btn-outline:hover { background: rgba(201, 164, 75, 0.12); }
+    .btn-small {
+      font-size: 13px;
+      padding: 6px 14px;
+    }
+    .btn:active { transform: scale(0.96); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* ==================== 房间面板 ==================== */
+    #room-panel .room-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    #join-area {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 12px;
+      align-items: center;
+    }
+    #room-input {
+      font-family: inherit;
+      font-size: 15px;
+      padding: 8px 12px;
+      border: 1px solid rgba(201, 164, 75, 0.4);
+      border-radius: 6px;
+      background: rgba(0,0,0,0.2);
+      color: var(--text-primary);
+      width: 180px;
+      outline: none;
+    }
+    #room-input:focus { border-color: var(--accent-gold); }
+    #room-input::placeholder { color: rgba(200, 180, 150, 0.4); }
+
+    /* ==================== 状态栏 ==================== */
+    #status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-dot.connected { background: #2ecc71; box-shadow: 0 0 6px #2ecc71; }
+    .status-dot.waiting { background: #f39c12; animation: pulse 1.5s infinite; }
+    .status-dot.disconnected { background: #e74c3c; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    #room-id-display {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 13px;
+      background: rgba(0,0,0,0.25);
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+
+    /* ==================== 棋盘容器 ==================== */
+    #board-container {
+      position: relative;
+      display: block;
+      margin: 0 auto;
+      touch-action: manipulation;
+      /* width/height 由 JS 动态设置，与 canvas 一致 */
+    }
+    #board-canvas {
+      display: block;
+      border-radius: 6px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      touch-action: manipulation;
+    }
+    #pieces-layer {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      touch-action: manipulation;
+    }
+
+    /* ==================== 棋子 ==================== */
+    .piece {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      width: calc(var(--cell-size) * 0.84);
+      height: calc(var(--cell-size) * 0.84);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: calc(var(--cell-size) * 0.46);
+      font-weight: bold;
+      cursor: pointer;
+      pointer-events: auto;
+      touch-action: manipulation;
+      -webkit-touch-callout: none;
+      transition: left 0.15s ease, top 0.15s ease;
+      box-shadow: 2px 3px 8px rgba(0,0,0,0.35);
+      z-index: 2;
+    }
+    .piece-red {
+      background: radial-gradient(circle at 35% 35%, #d4685a, var(--piece-red-bg) 60%, #7a1f1a 100%);
+      color: var(--piece-red-text);
+      border: 2px solid #8b1a1a;
+      text-shadow: 1px 1px 1px rgba(0,0,0,0.3);
+    }
+    .piece-black {
+      background: radial-gradient(circle at 35% 35%, #4a6075, var(--piece-black-bg) 60%, #151d26 100%);
+      color: var(--piece-black-text);
+      border: 2px solid #1a2530;
+      text-shadow: 1px 1px 1px rgba(0,0,0,0.3);
+    }
+    .piece.selected {
+      box-shadow: 0 0 14px 3px var(--highlight-gold), 2px 3px 8px rgba(0,0,0,0.35);
+      z-index: 5;
+    }
+
+    /* ==================== 合法走法标记 ==================== */
+    .valid-dot {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      width: calc(var(--cell-size) * 0.24);
+      height: calc(var(--cell-size) * 0.24);
+      border-radius: 50%;
+      background: var(--valid-dot);
+      pointer-events: none;
+      z-index: 3;
+    }
+    /* 吃子标记（在对方棋子上显示更大的圈） */
+    .valid-capture {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      width: calc(var(--cell-size) * 0.88);
+      height: calc(var(--cell-size) * 0.88);
+      border-radius: 50%;
+      border: 3px solid rgba(220, 60, 50, 0.55);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* ==================== 玩家信息 ==================== */
+    .player-label {
+      font-size: 14px;
+      color: var(--text-secondary);
+      text-align: center;
+      letter-spacing: 2px;
+    }
+    .player-label.you { color: var(--accent-gold); font-weight: bold; }
+
+    /* ==================== 游戏状态提示 ==================== */
+    #game-status {
+      font-size: 16px;
+      font-weight: bold;
+      text-align: center;
+      min-height: 24px;
+      color: var(--text-primary);
+      letter-spacing: 1px;
+    }
+    #game-status.check { color: var(--danger); animation: pulse 0.8s infinite; }
+
+    /* ==================== 操作按钮 ==================== */
+    #actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    /* ==================== 弹窗 ==================== */
+    #overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+    #overlay.show { display: flex; }
+    #overlay-content {
+      background: var(--bg-panel);
+      border: 1px solid var(--accent-gold);
+      border-radius: 14px;
+      padding: 32px 28px;
+      text-align: center;
+      max-width: 340px;
+      width: 90%;
+    }
+    #overlay-message {
+      font-size: 22px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      letter-spacing: 2px;
+    }
+    #overlay-message.win { color: var(--accent-gold); }
+    #overlay-message.lose { color: var(--text-secondary); }
+
+    /* ==================== 提示条 ==================== */
+    .toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-panel);
+      border: 1px solid var(--accent-gold);
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 14px;
+      z-index: 200;
+      animation: toastIn 0.3s ease, toastOut 0.3s ease 2s forwards;
+      pointer-events: none;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+    @keyframes toastOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+
+    /* ==================== 响应式 ==================== */
+    @media (max-width: 480px) {
+      :root {
+        --cell-size: min(48px, calc((100vw - 64px) / 9));
+        --board-pad: 24px;
+      }
+      .title { font-size: 22px; }
+      .btn { font-size: 14px; padding: 8px 18px; }
+      #game-status { font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- 标题 -->
+    <div class="title"><span class="lantern">🏮</span> 中国象棋</div>
+
+    <!-- 房间面板 -->
+    <div class="panel" id="room-panel">
+      <p style="color:var(--text-secondary);margin-bottom:4px;">与好友远程对战</p>
+      <div class="room-actions">
+        <button class="btn btn-primary" id="btn-create">🏠 创建房间</button>
+      </div>
+      <div id="join-area">
+        <input type="text" id="room-input" placeholder="输入房间号" maxlength="20" autocomplete="off">
+        <button class="btn btn-outline btn-small" id="btn-join">加入房间</button>
+      </div>
+    </div>
+
+    <!-- 游戏区域（初始隐藏） -->
+    <div id="game-area" style="display:none;">
+      <!-- 连接状态 -->
+      <div class="panel" id="status-bar">
+        <span class="status-dot waiting" id="status-dot"></span>
+        <span id="status-text">等待对手加入...</span>
+        <span id="room-id-display"></span>
+        <button class="btn btn-outline btn-small" id="btn-copy-link">📋 复制链接</button>
+        <button class="btn btn-outline btn-small" id="btn-back">← 返回</button>
+      </div>
+
+      <!-- 对手信息 -->
+      <div class="player-label" id="opponent-label">对手（黑方）</div>
+
+      <!-- 棋盘 -->
+      <div id="board-container">
+        <canvas id="board-canvas"></canvas>
+        <div id="pieces-layer"></div>
+      </div>
+
+      <!-- 己方信息 -->
+      <div class="player-label you" id="player-label">你（红方）</div>
+
+      <!-- 游戏状态 -->
+      <div id="game-status">连接中...</div>
+
+      <!-- 操作按钮 -->
+      <div id="actions">
+        <button class="btn btn-outline btn-small" id="btn-resign">🏳️ 认输</button>
+        <button class="btn btn-outline btn-small" id="btn-draw">🤝 求和</button>
+      </div>
+    </div>
+
+    <!-- 对战信息弹窗 -->
+    <div id="overlay">
+      <div id="overlay-content">
+        <div id="overlay-message"></div>
+        <button class="btn btn-primary" id="btn-overlay-action">再来一局</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 依赖 -->
+  <script src="chess-engine.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ==================== 常量 ====================
+    var RED = ChessEngine.COLORS.RED;
+    var BLACK = ChessEngine.COLORS.BLACK;
+
+    // ==================== DOM 引用 ====================
+    var roomPanel = document.getElementById('room-panel');
+    var gameArea = document.getElementById('game-area');
+    var btnCreate = document.getElementById('btn-create');
+    var btnJoin = document.getElementById('btn-join');
+    var roomInput = document.getElementById('room-input');
+    var statusDot = document.getElementById('status-dot');
+    var statusText = document.getElementById('status-text');
+    var roomIdDisplay = document.getElementById('room-id-display');
+    var btnCopyLink = document.getElementById('btn-copy-link');
+    var btnBack = document.getElementById('btn-back');
+    var opponentLabel = document.getElementById('opponent-label');
+    var playerLabel = document.getElementById('player-label');
+    var gameStatus = document.getElementById('game-status');
+    var boardCanvas = document.getElementById('board-canvas');
+    var piecesLayer = document.getElementById('pieces-layer');
+    var btnResign = document.getElementById('btn-resign');
+    var btnDraw = document.getElementById('btn-draw');
+    var overlay = document.getElementById('overlay');
+    var overlayMessage = document.getElementById('overlay-message');
+    var btnOverlayAction = document.getElementById('btn-overlay-action');
+
+    // ==================== 状态 ====================
+    var state = ChessEngine.createInitialState();
+    var myColor = null;          // 'red' | 'black' | null（未分配）
+    var selectedPiece = null;   // { row, col } | null
+    var validMoves = [];        // [{ row, col, isCapture }]
+    var isMyTurn = false;
+    var peer = null;
+    var conn = null;
+    var roomId = null;
+    var boardWidth, boardHeight, padding, cellSize;
+    var isGameStarted = false;
+    var joinTimeoutId = null;   // 连接超时计时器
+
+    // ==================== Toast ====================
+    function showToast(msg) {
+      var t = document.createElement('div');
+      t.className = 'toast';
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 2500);
+    }
+
+    // ==================== 棋盘渲染 ====================
+
+    function calcDimensions() {
+      var containerWidth = boardCanvas.parentElement.clientWidth;
+      var maxBoardWidth = Math.min(containerWidth - 4, 520);
+      // 计算合适的 cellSize，让棋盘适配
+      // 棋盘宽 = 2 * padding + 8 * cellSize
+      var rawCell = Math.floor((maxBoardWidth - 60) / 8);
+      cellSize = Math.max(36, Math.min(54, rawCell));
+      padding = cellSize * 0.6;
+      boardWidth = padding * 2 + 8 * cellSize;
+      boardHeight = padding * 2 + 9 * cellSize;
+    }
+
+    function drawBoard() {
+      calcDimensions();
+
+      var dpr = window.devicePixelRatio || 1;
+      boardCanvas.width = boardWidth * dpr;
+      boardCanvas.height = boardHeight * dpr;
+      boardCanvas.style.width = boardWidth + 'px';
+      boardCanvas.style.height = boardHeight + 'px';
+
+      // 设置容器尺寸与 canvas 一致（保证 pieces-layer 对齐）
+      var container = boardCanvas.parentElement;
+      container.style.width = boardWidth + 'px';
+      container.style.height = boardHeight + 'px';
+
+      // 更新 CSS 变量供棋子使用
+      document.documentElement.style.setProperty('--cell-size', cellSize + 'px');
+      document.documentElement.style.setProperty('--board-pad', padding + 'px');
+
+      var ctx = boardCanvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // 棋盘背景（木纹效果）
+      var bgGrad = ctx.createLinearGradient(0, 0, boardWidth, boardHeight);
+      bgGrad.addColorStop(0, '#f2deac');
+      bgGrad.addColorStop(0.3, '#e8d5a3');
+      bgGrad.addColorStop(0.6, '#e0ca95');
+      bgGrad.addColorStop(1, '#ecd9a6');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, boardWidth, boardHeight);
+
+      // 边框
+      ctx.strokeStyle = '#4a3520';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(padding - 6, padding - 6, 8 * cellSize + 12, 9 * cellSize + 12);
+
+      ctx.strokeStyle = '#3d2a15';
+      ctx.lineWidth = 1;
+
+      // 横线：上半部分（行 0-4）
+      for (var r = 0; r <= 4; r++) {
+        var y = padding + r * cellSize;
+        ctx.beginPath();
+        ctx.moveTo(padding, y);
+        ctx.lineTo(padding + 8 * cellSize, y);
+        ctx.stroke();
+      }
+
+      // 横线：下半部分（行 5-9）
+      for (r = 5; r <= 9; r++) {
+        y = padding + r * cellSize;
+        ctx.beginPath();
+        ctx.moveTo(padding, y);
+        ctx.lineTo(padding + 8 * cellSize, y);
+        ctx.stroke();
+      }
+
+      // 竖线：所有（列 0-8），但中间的竖线在楚河汉界处断开
+      for (var c = 0; c <= 8; c++) {
+        var x = padding + c * cellSize;
+        if (c === 0 || c === 8) {
+          // 左右边界线贯穿
+          ctx.beginPath();
+          ctx.moveTo(x, padding);
+          ctx.lineTo(x, padding + 9 * cellSize);
+          ctx.stroke();
+        } else {
+          // 内部竖线分上下两段
+          ctx.beginPath();
+          ctx.moveTo(x, padding);
+          ctx.lineTo(x, padding + 4 * cellSize);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(x, padding + 5 * cellSize);
+          ctx.lineTo(x, padding + 9 * cellSize);
+          ctx.stroke();
+        }
+      }
+
+      // 九宫格斜线
+      ctx.strokeStyle = '#3d2a15';
+      ctx.lineWidth = 0.8;
+      // 上方九宫（黑方，行 0-2，列 3-5）
+      ctx.beginPath();
+      ctx.moveTo(padding + 3 * cellSize, padding);
+      ctx.lineTo(padding + 5 * cellSize, padding + 2 * cellSize);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(padding + 5 * cellSize, padding);
+      ctx.lineTo(padding + 3 * cellSize, padding + 2 * cellSize);
+      ctx.stroke();
+
+      // 下方九宫（红方，行 7-9，列 3-5）
+      ctx.beginPath();
+      ctx.moveTo(padding + 3 * cellSize, padding + 7 * cellSize);
+      ctx.lineTo(padding + 5 * cellSize, padding + 9 * cellSize);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(padding + 5 * cellSize, padding + 7 * cellSize);
+      ctx.lineTo(padding + 3 * cellSize, padding + 9 * cellSize);
+      ctx.stroke();
+
+      // 楚河汉界文字
+      ctx.fillStyle = '#3d2a15';
+      ctx.font = 'bold ' + (cellSize * 0.35) + 'px "KaiTi","STKaiti",serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      var riverY = padding + 4.5 * cellSize;
+      ctx.fillText('楚  河', padding + 2 * cellSize, riverY);
+      ctx.fillText('汉  界', padding + 6 * cellSize, riverY);
+    }
+
+    function getPiecePos(row, col) {
+      return {
+        x: padding + col * cellSize,
+        y: padding + row * cellSize
+      };
+    }
+
+    function renderPieces() {
+      // 清空
+      piecesLayer.innerHTML = '';
+
+      for (var r = 0; r < 10; r++) {
+        for (var c = 0; c < 9; c++) {
+          var piece = state.board[r][c];
+          if (!piece) continue;
+
+          var div = document.createElement('div');
+          div.className = 'piece piece-' + piece.color;
+          div.textContent = ChessEngine.getPieceChar(piece);
+
+          var pos = getPiecePos(r, c);
+          div.style.left = pos.x + 'px';
+          div.style.top = pos.y + 'px';
+          div.dataset.row = r;
+          div.dataset.col = c;
+
+          // 选中高亮
+          if (selectedPiece && selectedPiece.row === r && selectedPiece.col === c) {
+            div.classList.add('selected');
+          }
+
+          // 自己棋子可点，对手棋子不可点
+          if (isMyTurn && piece.color === myColor && !state.gameOver) {
+            div.style.pointerEvents = 'auto';
+            div.style.cursor = 'pointer';
+            div.addEventListener('click', function (evt) {
+              evt.stopPropagation();
+              onPieceClick(parseInt(this.dataset.row), parseInt(this.dataset.col));
+            });
+            // 触屏
+            div.addEventListener('touchend', function (evt) {
+              evt.preventDefault();
+              evt.stopPropagation();
+              onPieceClick(parseInt(this.dataset.row), parseInt(this.dataset.col));
+            });
+          } else {
+            div.style.pointerEvents = 'none';
+          }
+
+          piecesLayer.appendChild(div);
+        }
+      }
+
+      // 合法走法标记
+      renderValidMoveIndicators();
+    }
+
+    function renderValidMoveIndicators() {
+      // 先清除旧的
+      var old = piecesLayer.querySelectorAll('.valid-dot,.valid-capture');
+      for (var i = 0; i < old.length; i++) { old[i].remove(); }
+
+      for (var j = 0; j < validMoves.length; j++) {
+        var move = validMoves[j];
+        var pos = getPiecePos(move.row, move.col);
+
+        if (move.isCapture) {
+          // 吃子标记：红圈
+          var ring = document.createElement('div');
+          ring.className = 'valid-capture';
+          ring.style.left = pos.x + 'px';
+          ring.style.top = pos.y + 'px';
+          piecesLayer.appendChild(ring);
+        } else {
+          // 移动标记：绿点
+          var dot = document.createElement('div');
+          dot.className = 'valid-dot';
+          dot.style.left = pos.x + 'px';
+          dot.style.top = pos.y + 'px';
+          piecesLayer.appendChild(dot);
+        }
+      }
+    }
+
+    function refreshBoard() {
+      renderPieces();
+      updateGameStatus();
+    }
+
+    // ==================== 交互处理 ====================
+
+    function onPieceClick(row, col) {
+      if (!isMyTurn || state.gameOver || !isGameStarted) return;
+
+      var piece = state.board[row][col];
+
+      // 如果已有选中棋子
+      if (selectedPiece) {
+        // 点击自己的另一颗棋子 → 切换选中
+        if (piece && piece.color === myColor) {
+          selectPiece(row, col);
+          return;
+        }
+
+        // 检查是否是合法走法
+        var isLegalMove = false;
+        for (var i = 0; i < validMoves.length; i++) {
+          if (validMoves[i].row === row && validMoves[i].col === col) {
+            isLegalMove = true;
+            break;
+          }
+        }
+
+        if (isLegalMove) {
+          executeMove(selectedPiece.row, selectedPiece.col, row, col);
+        } else {
+          // 点击了无效位置，取消选中
+          deselectPiece();
+        }
+      } else {
+        // 没有选中 → 选中己方棋子
+        if (piece && piece.color === myColor) {
+          selectPiece(row, col);
+        }
+      }
+    }
+
+    function selectPiece(row, col) {
+      selectedPiece = { row: row, col: col };
+      // 计算合法走法（带 isCapture 标记）
+      var moves = ChessEngine.getValidMoves(state.board, row, col);
+      validMoves = moves.map(function (m) {
+        return {
+          row: m.row,
+          col: m.col,
+          isCapture: state.board[m.row][m.col] !== null
+        };
+      });
+      refreshBoard();
+    }
+
+    function deselectPiece() {
+      selectedPiece = null;
+      validMoves = [];
+      refreshBoard();
+    }
+
+    function executeMove(fromRow, fromCol, toRow, toCol) {
+      // 本地执行
+      state = ChessEngine.makeMove(state, fromRow, fromCol, toRow, toCol);
+      selectedPiece = null;
+      validMoves = [];
+      isMyTurn = false;
+      refreshBoard();
+
+      // 发送给对手
+      sendMessage({
+        type: 'move',
+        from: { row: fromRow, col: fromCol },
+        to: { row: toRow, col: toCol }
+      });
+
+      // 检查游戏是否结束
+      if (state.gameOver) {
+        showGameOver();
+      }
+    }
+
+    // 点击棋盘空白处取消选中
+    boardCanvas.addEventListener('click', function (e) {
+      if (!isMyTurn || state.gameOver || !isGameStarted) return;
+      var pos = getIntersectionFromEvent(e);
+      if (!pos) { deselectPiece(); return; }
+      var piece = state.board[pos.row][pos.col];
+
+      if (selectedPiece) {
+        // 点击己方棋子 → 交给棋子 click 处理
+        if (piece && piece.color === myColor) return;
+
+        // 检查是否是合法走法目标
+        for (var i = 0; i < validMoves.length; i++) {
+          if (validMoves[i].row === pos.row && validMoves[i].col === pos.col) {
+            executeMove(selectedPiece.row, selectedPiece.col, pos.row, pos.col);
+            return;
+          }
+        }
+        // 无效位置 → 取消选中
+        deselectPiece();
+      }
+    });
+
+    function getIntersectionFromEvent(e) {
+      var rect = boardCanvas.getBoundingClientRect();
+      var x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+      var y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+
+      // 计算最近的交叉点
+      var col = Math.round((x - padding) / cellSize);
+      var row = Math.round((y - padding) / cellSize);
+
+      if (col < 0 || col > 8 || row < 0 || row > 9) return null;
+
+      // 检查距离是否在可接受范围内
+      var cx = padding + col * cellSize;
+      var cy = padding + row * cellSize;
+      var dist = Math.sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+      if (dist > cellSize * 0.5) return null;
+
+      return { row: row, col: col };
+    }
+
+    // 触屏点击棋盘空白处（处理 touchend 在 canvas 上的情况）
+    boardCanvas.addEventListener('touchend', function (e) {
+      if (!isMyTurn || state.gameOver || !isGameStarted) return;
+      if (e.target !== boardCanvas) return;
+
+      var pos = getIntersectionFromEvent(e);
+      if (!pos) { deselectPiece(); return; }
+      var piece = state.board[pos.row][pos.col];
+
+      if (selectedPiece) {
+        if (piece && piece.color === myColor) return;
+
+        for (var i = 0; i < validMoves.length; i++) {
+          if (validMoves[i].row === pos.row && validMoves[i].col === pos.col) {
+            executeMove(selectedPiece.row, selectedPiece.col, pos.row, pos.col);
+            return;
+          }
+        }
+        deselectPiece();
+      }
+    });
+
+    // ==================== 游戏状态显示 ====================
+
+    function updateGameStatus() {
+      if (!isGameStarted) {
+        gameStatus.textContent = '等待连接...';
+        gameStatus.className = '';
+        return;
+      }
+
+      if (state.gameOver) {
+        var isWin = state.gameOver.winner === myColor;
+        if (isWin) {
+          gameStatus.textContent = '🎉 你赢了！';
+          gameStatus.className = '';
+        } else {
+          gameStatus.textContent = '😞 你输了';
+          gameStatus.className = '';
+        }
+        return;
+      }
+
+      if (state.inCheck) {
+        if (state.inCheck === myColor) {
+          gameStatus.textContent = '⚠️ 将军！你被将军了！';
+        } else {
+          gameStatus.textContent = '⚔️ 将军！';
+        }
+        gameStatus.className = 'check';
+      } else if (isMyTurn) {
+        gameStatus.textContent = '轮到你了，请走棋';
+        gameStatus.className = '';
+      } else {
+        gameStatus.textContent = '等待对手走棋...';
+        gameStatus.className = '';
+      }
+
+      // 更新玩家标签
+      if (myColor === RED) {
+        playerLabel.textContent = '你（红方）';
+        opponentLabel.textContent = '对手（黑方）';
+      } else {
+        playerLabel.textContent = '你（黑方）';
+        opponentLabel.textContent = '对手（红方）';
+      }
+    }
+
+    function showGameOver() {
+      if (!state.gameOver) return;
+      var isWin = state.gameOver.winner === myColor;
+      var reason = state.gameOver.reason;
+      var reasonText = reason === 'checkmate' ? '将死' :
+                       reason === 'stalemate' ? '困毙' : '认输';
+
+      overlayMessage.textContent = isWin ? '🎉 你赢了！' : '😞 你输了';
+      overlayMessage.className = isWin ? 'win' : 'lose';
+      overlayMessage.textContent += ' (' + reasonText + ')';
+      btnOverlayAction.textContent = '再来一局';
+      overlay.classList.add('show');
+      btnResign.disabled = true;
+      btnDraw.disabled = true;
+    }
+
+    // ==================== 网络层 (PeerJS) ====================
+
+    function initPeer(id) {
+      peer = new Peer(id, {
+        debug: 0
+      });
+
+      peer.on('open', function (pid) {
+        console.log('Peer connected, ID:', pid);
+        roomId = pid;
+        roomIdDisplay.textContent = '房间: ' + pid;
+        updateShareLink();
+      });
+
+      peer.on('connection', function (incoming) {
+        console.log('Incoming connection from:', incoming.peer);
+        conn = incoming;
+        setupConnection();
+      });
+
+      peer.on('error', function (err) {
+        console.error('Peer error:', err);
+        if (err.type === 'unavailable-id') {
+          showToast('房间ID不可用，请重试');
+        } else if (err.type === 'peer-unavailable') {
+          showToast('无法连接到该房间，请确认房间号正确');
+          setConnectionStatus('disconnected', '连接失败');
+        }
+      });
+
+      peer.on('disconnected', function () {
+        console.log('Peer disconnected, attempting reconnect...');
+        setConnectionStatus('disconnected', '连接断开，正在重连...');
+        if (peer && !peer.destroyed) {
+          peer.reconnect();
+        }
+      });
+    }
+
+    function setupConnection() {
+      // 清除加入房间的超时计时器
+      if (joinTimeoutId) { clearTimeout(joinTimeoutId); joinTimeoutId = null; }
+
+      conn.on('open', function () {
+        console.log('Data connection established');
+        isGameStarted = true;
+        setConnectionStatus('connected', '已连接');
+
+        // 房主发送游戏开始
+        if (myColor === RED) {
+          sendMessage({ type: 'gameStart', hostColor: RED });
+        }
+      });
+
+      conn.on('data', function (data) {
+        handleMessage(data);
+      });
+
+      conn.on('close', function () {
+        console.log('Connection closed');
+        isGameStarted = false;
+        setConnectionStatus('disconnected', '对手已断开');
+        showToast('对手已断开连接');
+      });
+
+      conn.on('error', function (err) {
+        console.error('Connection error:', err);
+        setConnectionStatus('disconnected', '连接出错');
+        showToast('连接出错，请重试');
+      });
+    }
+
+    function sendMessage(msg) {
+      if (conn && conn.open) {
+        conn.send(msg);
+      }
+    }
+
+    function handleMessage(msg) {
+      switch (msg.type) {
+        case 'gameStart':
+          // 房主分配颜色
+          if (!myColor) {
+            myColor = BLACK;
+            isMyTurn = false; // 红方先走
+            isGameStarted = true;
+            setConnectionStatus('connected', '已连接');
+            updatePlayerLabels();
+            refreshBoard();
+          }
+          break;
+
+        case 'move':
+          handleRemoteMove(msg.from.row, msg.from.col, msg.to.row, msg.to.col);
+          break;
+
+        case 'resign':
+          // 对手认输
+          state.gameOver = { winner: myColor, reason: 'resign' };
+          refreshBoard();
+          showGameOver();
+          showToast('对手认输了！');
+          break;
+
+        case 'drawRequest':
+          showDrawRequest();
+          break;
+
+        case 'drawResponse':
+          if (msg.accepted) {
+            // 和棋（简化处理：双方都不输）
+            state.gameOver = { winner: null, reason: 'draw' };
+            refreshBoard();
+            overlayMessage.textContent = '🤝 和棋';
+            overlayMessage.className = '';
+            btnOverlayAction.textContent = '再来一局';
+            overlay.classList.add('show');
+            showToast('对方同意了求和');
+          } else {
+            showToast('对方拒绝了求和');
+          }
+          break;
+
+        case 'newGame':
+          resetGame();
+          break;
+      }
+    }
+
+    function handleRemoteMove(fromRow, fromCol, toRow, toCol) {
+      // 验证走法合法性
+      var moves = ChessEngine.getValidMoves(state.board, fromRow, fromCol);
+      var isValid = moves.some(function (m) {
+        return m.row === toRow && m.col === toCol;
+      });
+
+      if (!isValid) {
+        console.warn('Received invalid move from opponent');
+        return;
+      }
+
+      // 验证是否轮到对方走
+      if (state.turn !== myColor) {
+        state = ChessEngine.makeMove(state, fromRow, fromCol, toRow, toCol);
+        isMyTurn = true;
+        selectedPiece = null;
+        validMoves = [];
+        refreshBoard();
+
+        if (state.gameOver) {
+          showGameOver();
+        }
+      }
+    }
+
+    // ==================== 房间管理 ====================
+
+    function generateRoomId() {
+      var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      var id = 'chess-';
+      for (var i = 0; i < 6; i++) {
+        id += chars[Math.floor(Math.random() * chars.length)];
+      }
+      return id;
+    }
+
+    function createRoom() {
+      var id = generateRoomId();
+      roomId = id;        // 立即设置，不等待 peer open 回调
+      myColor = RED;      // 房主执红
+      isMyTurn = true;    // 红方先走
+      isGameStarted = false;
+
+      initPeer(id);
+
+      showGameUI();       // 内部通过 rAF 延迟绘制
+      setConnectionStatus('waiting', '等待对手加入...');
+      roomIdDisplay.textContent = '房间: ' + id;
+      updatePlayerLabels();
+      updateShareLink();
+
+      // 更新浏览器地址栏（方便分享）
+      var shareUrl = window.location.origin + window.location.pathname + '?room=' + id;
+      window.history.replaceState({}, '', shareUrl);
+    }
+
+    function joinRoom(rid) {
+      roomId = rid;       // 立即设置
+      myColor = BLACK;    // 加入者执黑
+      isMyTurn = false;
+      isGameStarted = false;
+
+      initPeer(null); // 自动生成 ID
+
+      peer.on('open', function () {
+        console.log('Joining room:', rid);
+        roomIdDisplay.textContent = '房间: ' + rid;
+        updateShareLink();
+
+        setConnectionStatus('waiting', '正在连接房间...');
+        conn = peer.connect(rid, { reliable: true });
+        setupConnection();
+      });
+
+      // 15 秒连接超时
+      if (joinTimeoutId) clearTimeout(joinTimeoutId);
+      joinTimeoutId = setTimeout(function () {
+        if (!isGameStarted) {
+          setConnectionStatus('disconnected', '连接超时');
+          showToast('连接超时，请确认房间号是否正确，或请房主先创建房间');
+        }
+      }, 15000);
+
+      showGameUI();       // 内部通过 rAF 延迟绘制
+      updatePlayerLabels();
+      updateShareLink();
+    }
+
+    function updateShareLink() {
+      var rid = roomId || '';
+      // 构建分享 URL
+      var baseUrl = window.location.origin + window.location.pathname;
+      var shareUrl = baseUrl + '?room=' + rid;
+      // 保存到数据属性供复制使用
+      btnCopyLink.dataset.url = shareUrl;
+    }
+
+    function copyShareLink() {
+      var url = btnCopyLink.dataset.url || '';
+      if (!url) { showToast('请先创建房间'); return; }
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(function () {
+          showToast('链接已复制！发送给好友即可对战');
+        }).catch(function () {
+          showToast('复制失败，请手动复制链接');
+        });
+      } else {
+        // 兼容旧浏览器
+        var ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); showToast('链接已复制！发送给好友即可对战'); }
+        catch (e) { showToast('复制失败，请手动复制: ' + url); }
+        document.body.removeChild(ta);
+      }
+    }
+
+    function setConnectionStatus(status, text) {
+      statusDot.className = 'status-dot ' + status;
+      statusText.textContent = text;
+    }
+
+    function showGameUI() {
+      roomPanel.style.display = 'none';
+      gameArea.style.display = '';
+      // 等待布局完成后再绘制（否则容器尺寸为 0）
+      requestAnimationFrame(function () {
+        drawBoard();
+        refreshBoard();
+      });
+    }
+
+    function updatePlayerLabels() {
+      if (myColor === RED) {
+        playerLabel.textContent = '你（红方 · 先手）';
+        opponentLabel.textContent = '对手（黑方）';
+      } else {
+        playerLabel.textContent = '你（黑方）';
+        opponentLabel.textContent = '对手（红方 · 先手）';
+      }
+    }
+
+    function resetGame() {
+      state = ChessEngine.createInitialState();
+      selectedPiece = null;
+      validMoves = [];
+      isGameStarted = true;
+      if (myColor === RED) {
+        isMyTurn = true;
+      } else {
+        isMyTurn = false;
+      }
+      overlay.classList.remove('show');
+      btnResign.disabled = false;
+      btnDraw.disabled = false;
+      refreshBoard();
+    }
+
+    // ==================== 求和弹窗 ====================
+
+    function showDrawRequest() {
+      overlayMessage.textContent = '🤝 对手请求和棋';
+      overlayMessage.className = '';
+      btnOverlayAction.textContent = '同意求和';
+      overlay.classList.add('show');
+
+      // 临时覆盖按钮行为
+      btnOverlayAction.onclick = function () {
+        sendMessage({ type: 'drawResponse', accepted: true });
+        state.gameOver = { winner: null, reason: 'draw' };
+        refreshBoard();
+        overlay.classList.remove('show');
+        overlayMessage.textContent = '🤝 和棋';
+        overlayMessage.className = '';
+        btnOverlayAction.textContent = '再来一局';
+        btnOverlayAction.onclick = resetGame;
+        overlay.classList.add('show');
+        restoreOverlayAction();
+      };
+    }
+
+    function restoreOverlayAction() {
+      btnOverlayAction.onclick = function () {
+        overlay.classList.remove('show');
+        sendMessage({ type: 'newGame' });
+        resetGame();
+      };
+    }
+
+    // ==================== 事件绑定 ====================
+
+    btnCreate.addEventListener('click', createRoom);
+
+    btnJoin.addEventListener('click', function () {
+      var rid = roomInput.value.trim();
+      if (!rid) { showToast('请输入房间号'); return; }
+      joinRoom(rid);
+    });
+
+    roomInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        var rid = roomInput.value.trim();
+        if (rid) joinRoom(rid);
+      }
+    });
+
+    btnCopyLink.addEventListener('click', copyShareLink);
+    btnBack.addEventListener('click', function () {
+      if (confirm('确定要返回大厅吗？当前对局将丢失。')) {
+        goBackToLobby();
+      }
+    });
+
+    btnResign.addEventListener('click', function () {
+      if (!state.gameOver && isGameStarted) {
+        sendMessage({ type: 'resign' });
+        state.gameOver = { winner: myColor === RED ? BLACK : RED, reason: 'resign' };
+        refreshBoard();
+        showGameOver();
+      }
+    });
+
+    btnDraw.addEventListener('click', function () {
+      if (!state.gameOver && isGameStarted) {
+        sendMessage({ type: 'drawRequest' });
+        showToast('已发送求和请求');
+      }
+    });
+
+    btnOverlayAction.addEventListener('click', function () {
+      overlay.classList.remove('show');
+      sendMessage({ type: 'newGame' });
+      resetGame();
+    });
+
+    // 窗口大小变化时重绘棋盘
+    var resizeTimeout;
+    window.addEventListener('resize', function () {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(function () {
+        drawBoard();
+        refreshBoard();
+      }, 200);
+    });
+
+    // ==================== 返回大厅 ====================
+    function goBackToLobby() {
+      // 断开连接
+      if (conn) { conn.close(); conn = null; }
+      if (peer) { peer.destroy(); peer = null; }
+
+      // 重置状态
+      state = ChessEngine.createInitialState();
+      myColor = null;
+      selectedPiece = null;
+      validMoves = [];
+      isMyTurn = false;
+      isGameStarted = false;
+      roomId = null;
+      if (joinTimeoutId) { clearTimeout(joinTimeoutId); joinTimeoutId = null; }
+
+      // 恢复 URL
+      var baseUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, '', baseUrl);
+
+      // 切换 UI
+      gameArea.style.display = 'none';
+      roomPanel.style.display = '';
+      overlay.classList.remove('show');
+      overlayMessage.className = '';
+    }
+
+    // ==================== 初始化 ====================
+
+    function init() {
+      // 检查 PeerJS 是否加载成功
+      if (typeof Peer === 'undefined') {
+        roomPanel.innerHTML = '<p style="color:#e74c3c;">⚠️ 网络模块加载失败，请检查网络连接后刷新页面</p>';
+        return;
+      }
+
+      // 检查 URL 参数，自动加入房间
+      var params = new URLSearchParams(window.location.search);
+      var roomFromUrl = params.get('room');
+
+      if (roomFromUrl) {
+        // 有房间号 → 自动加入
+        roomInput.value = roomFromUrl;
+        joinRoom(roomFromUrl);
+      }
+      // 无 room 参数时显示主面板，棋盘等进入游戏后再绘制
+    }
+
+    init();
+    console.log('🏮 中国象棋已就绪');
+  })();
+  </script>
+</body>
+</html>
